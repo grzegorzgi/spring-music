@@ -1,0 +1,202 @@
+openapi: "3.0.3"
+info:
+  title: Album Service
+  version: "1.0.0"
+  description: |
+    Modernized album CRUD API. Extracted from the spring-music monolith via Strangler Fig.
+    Breaking changes from legacy: `releaseYear` (string) → `year` (integer); `albumId` and `_class` removed.
+
+servers:
+  - url: http://localhost:3000
+    description: Local development
+
+paths:
+  /health:
+    get:
+      summary: Liveness check
+      operationId: getHealth
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /albums:
+    get:
+      summary: List all albums
+      operationId: listAlbums
+      responses:
+        "200":
+          description: Array of albums
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Album"
+
+    post:
+      summary: Create a new album
+      operationId: createAlbum
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AlbumInput"
+      responses:
+        "201":
+          description: Created album
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Album"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+
+  /albums/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+
+    get:
+      summary: Get album by ID
+      operationId: getAlbum
+      responses:
+        "200":
+          description: Album found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Album"
+        "404":
+          description: Album not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFoundError"
+
+    put:
+      summary: Full update of an album
+      operationId: updateAlbum
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AlbumInput"
+      responses:
+        "200":
+          description: Updated album
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Album"
+        "404":
+          description: Album not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFoundError"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+
+    delete:
+      summary: Delete an album
+      operationId: deleteAlbum
+      responses:
+        "204":
+          description: Deleted successfully
+        "404":
+          description: Album not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFoundError"
+
+components:
+  schemas:
+    Album:
+      type: object
+      required: [id, title, artist, year, genre, trackCount]
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+        title:
+          type: string
+          example: "Nevermind"
+        artist:
+          type: string
+          example: "Nirvana"
+        year:
+          type: integer
+          minimum: 1900
+          maximum: 2100
+          example: 1991
+        genre:
+          type: string
+          example: "Rock"
+        trackCount:
+          type: integer
+          minimum: 0
+          example: 13
+
+    AlbumInput:
+      type: object
+      required: [title, artist, year, genre]
+      properties:
+        title:
+          type: string
+          minLength: 1
+        artist:
+          type: string
+          minLength: 1
+        year:
+          type: integer
+          minimum: 1900
+          maximum: 2100
+        genre:
+          type: string
+          minLength: 1
+        trackCount:
+          type: integer
+          minimum: 0
+          default: 0
+
+    ValidationError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Validation failed"
+        issues:
+          type: array
+          items:
+            type: object
+
+    NotFoundError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Album not found"
