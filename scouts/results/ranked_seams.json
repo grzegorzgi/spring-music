@@ -1,68 +1,110 @@
 {
   "project": "spring-music",
-  "generated_at": "2026-04-24T10:00:00Z",
+  "generated_at": "2026-04-24T12:00:00Z",
   "model": "claude-sonnet-4-6",
+  "aligned_with": "decisions/ADR-001-decomposition.md",
+  "extraction_strategy": "Strangler Fig with API Facade",
+  "prerequisite": "Characterization tests must be written before Phase 1. No extraction without a safety net.",
   "scoring_dimensions": {
-    "coupling": "weight 30% — cross-layer references",
-    "test_coverage": "weight 20% — inverse: no tests = high risk",
-    "data_tangle": "weight 25% — shared / entangled data model",
-    "business_criticality": "weight 25% — production impact if broken"
+    "coupling": "weight 30% — cross-layer references and dependencies",
+    "test_coverage": "weight 20% — inverse: no tests = high extraction risk",
+    "data_tangle": "weight 25% — shared or entangled data model",
+    "business_criticality": "weight 25% — production impact if extraction goes wrong"
   },
   "ranked_seams": [
     {
-      "id": "S3",
-      "name": "Persistence / Repository Layer",
-      "coupling": 9,
-      "test_coverage": 8,
-      "data_tangle": 9,
-      "business_criticality": 9,
-      "risk_score": 8.8,
-      "rationale": "Four backend implementations (JPA, MongoDB, Redis, in-memory) behind a single interface, selected by Spring profiles that read Cloud Foundry VCAP_SERVICES at runtime. Extracting this without breaking profile-switching logic requires significant refactoring of both the config layer and the domain model's JPA annotations.",
-      "recommendation": "Extract last — high risk, needs refactor first"
+      "id": "S0",
+      "name": "Operational Safety",
+      "action": "DELETE — not an extraction",
+      "coupling": 1,
+      "test_coverage": 10,
+      "data_tangle": 1,
+      "business_criticality": 10,
+      "risk_score": null,
+      "phase": "Phase 0 — before anything else",
+      "recommendation": "Delete immediately — security risk. ErrorController exposes unauthenticated crash endpoints (System.exit, OOM loop). Actuator wildcard exposes env vars, credentials and heap dumps publicly. Must be removed before any deployment to any environment.",
+      "rationale": "This is not an extraction — it is a deletion. ErrorController has no business value and is a critical security liability. Actuator misconfiguration leaks credentials via /actuator/env. Fixing this in Phase 0 costs nothing and eliminates the highest-severity risks in the entire codebase."
     },
     {
-      "id": "S4",
-      "name": "Application Configuration",
+      "id": "S1",
+      "name": "Album Catalog Service",
+      "action": "EXTRACT FIRST",
+      "coupling": 4,
+      "test_coverage": 9,
+      "data_tangle": 5,
+      "business_criticality": 9,
+      "risk_score": 5.6,
+      "phase": "Phase 1",
+      "recommendation": "Extract first — this is the only business capability. Group controller, domain entity, and all repository implementations together. Do not extract the web layer separately from the domain: a controller without its entity and repository is non-functional.",
+      "rationale": "AlbumController calls the repository interface directly with a clean CrudRepository boundary. The main complication is that Album carries JPA annotations but is reused for MongoDB — this dual-purpose POJO must be resolved during extraction. Target: Spring Boot 3.x, Java 17, PostgreSQL as default. The lack of test coverage is the biggest risk: characterization tests must be written first.",
+      "blockers": [
+        "No characterization tests — write these before touching any code",
+        "Album entity has JPA annotations but is reused for MongoDB — resolve before extraction",
+        "PUT/POST semantics are inverted in AlbumController — fix during extraction, not before"
+      ]
+    },
+    {
+      "id": "S2",
+      "name": "Data Initialization",
+      "action": "EXTRACT ALONGSIDE S1",
+      "coupling": 3,
+      "test_coverage": 8,
+      "data_tangle": 3,
+      "business_criticality": 6,
+      "risk_score": 4.6,
+      "phase": "Phase 1 — moves with S1",
+      "recommendation": "Extract alongside Album Catalog Service, not before or after. If left in the monolith when S1 is extracted, the new service starts empty. If extracted before S1, it has nothing to seed. The two must travel together.",
+      "rationale": "AlbumRepositoryPopulator is a hidden business rule (seed on first startup if empty) buried in an ApplicationReadyEvent listener. The count()==0 guard must become explicit during extraction — migrate to a DataInitializer component or a Flyway seed migration inside the new catalog service.",
+      "blockers": [
+        "Easy to forget — not visible from the API surface, no tests cover it",
+        "Must be made opt-in via Spring profile in production (sample data in a logistics catalog is unprofessional — see USER_STORIES.md CAP-4)"
+      ]
+    },
+    {
+      "id": "S3",
+      "name": "Platform / Infrastructure Adapter",
+      "action": "DISSOLVE — not an extraction",
       "coupling": 8,
       "test_coverage": 9,
       "data_tangle": 7,
       "business_criticality": 8,
-      "risk_score": 8.0,
-      "rationale": "SpringApplicationContextInitializer hard-codes Cloud Foundry VCAP_SERVICES parsing to wire the correct datasource bean; RedisConfig adds Lettuce connection pooling on top. Zero unit tests and tight coupling to CF environment variables make this extremely fragile to move.",
-      "recommendation": "Extract last — high risk, needs refactor first"
-    },
-    {
-      "id": "S2",
-      "name": "Domain Model",
-      "coupling": 7,
-      "test_coverage": 6,
-      "data_tangle": 8,
-      "business_criticality": 8,
-      "risk_score": 7.3,
-      "rationale": "Album carries both JPA annotations (@Entity, @Id) and is reused as-is for MongoDB — a dual-purpose POJO that ties the domain model to two different persistence strategies. Any extraction must resolve this annotation conflict before the seam can stand alone.",
-      "recommendation": "Extract after low-risk seams are stable"
-    },
-    {
-      "id": "S1",
-      "name": "Web / API Layer",
-      "coupling": 6,
-      "test_coverage": 5,
-      "data_tangle": 4,
-      "business_criticality": 7,
-      "risk_score": 5.6,
-      "rationale": "AlbumController calls the repository interface directly with no service layer in between; ErrorController and InfoController are stateless. Extractable once the repository interface is stable, but the lack of a service layer means business logic would need to be introduced during extraction.",
-      "recommendation": "Extract after low-risk seams are stable"
-    },
-    {
-      "id": "S5",
-      "name": "Bootstrap / Seed Data",
-      "coupling": 2,
-      "test_coverage": 3,
-      "data_tangle": 2,
-      "business_criticality": 1,
-      "risk_score": 2.0,
-      "rationale": "AlbumRepositoryPopulator only seeds demo data on startup and has no production dependencies — it is a pure dev/demo concern. Can be extracted or deleted with zero impact on any other seam.",
-      "recommendation": "Extract first — low coupling and risk"
+      "risk_score": 8.1,
+      "phase": "Phase 2",
+      "recommendation": "Do not extract — dissolve. SpringApplicationContextInitializer is tightly coupled to Cloud Foundry VCAP_SERVICES and runs before the Spring context is built, making it untestable. As CF dependency is removed and replaced with standard SPRING_PROFILES_ACTIVE env vars, this class becomes irrelevant and is deleted, not migrated.",
+      "rationale": "InfoController does new CfEnv() directly (cannot be injected or mocked). SpringApplicationContextInitializer runs at bootstrap time — any failure here prevents the app from starting. Hardcoded service-tag-to-profile mapping makes it brittle for any new environment. Short-term: inject CfEnv into InfoController. Medium-term: replace all CF detection with env-var config — the class dissolves naturally.",
+      "blockers": [
+        "InfoController instantiates CfEnv directly — refactor to inject before extracting",
+        "SpringApplicationContextInitializer runs before beans are created — extremely hard to test",
+        "Hardcoded HashMap of CF service tags to profiles — brittle, must be replaced with env-var config"
+      ]
     }
-  ]
+  ],
+  "extraction_roadmap": {
+    "phase_0": {
+      "label": "Security First",
+      "actions": [
+        "Delete ErrorController",
+        "Restrict Actuator to health and info only",
+        "Write characterization tests against current API"
+      ]
+    },
+    "phase_1": {
+      "label": "Extract Business Capability",
+      "actions": [
+        "Extract Album Catalog Service (S1) + Data Initialization (S2) together",
+        "New service: Spring Boot 3.x, Java 17, PostgreSQL",
+        "API Facade routes /albums/* to new service",
+        "Monolith /albums kept alive until contract tests pass"
+      ]
+    },
+    "phase_2": {
+      "label": "Remove CF Dependency",
+      "actions": [
+        "Inject CfEnv into InfoController",
+        "Replace CF profile detection with SPRING_PROFILES_ACTIVE env var",
+        "SpringApplicationContextInitializer dissolves — delete it",
+        "Decommission monolith shell"
+      ]
+    }
+  }
 }

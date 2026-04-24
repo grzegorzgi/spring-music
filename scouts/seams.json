@@ -1,59 +1,67 @@
 {
   "project": "spring-music",
-  "description": "Natural extraction boundaries identified in the Spring Music codebase",
+  "description": "Extraction seams identified in Spring Music, aligned with ADR-001-decomposition.md. Grouped by business capability, not technical layer.",
+  "extraction_strategy": "Strangler Fig with API Facade — extract one seam at a time, monolith stays live until contract tests pass",
+  "prerequisite": "Characterization tests (The Pin) must be written against the current API before Phase 1 begins. No extraction without a safety net.",
   "seams": [
     {
+      "id": "S0",
+      "name": "Operational Safety",
+      "action": "DELETE — not an extraction",
+      "description": "Unauthenticated crash endpoints and wildcard Actuator exposure. Not a business capability — a security liability that must be removed before any deployment.",
+      "files": [
+        "src/main/java/org/cloudfoundry/samples/music/web/ErrorController.java",
+        "src/main/resources/application.yml"
+      ],
+      "security_issues": [
+        "GET /errors/kill calls System.exit(1) — kills the JVM, no auth required",
+        "GET /errors/fill-heap runs infinite memory allocation loop — causes OOM",
+        "GET /errors/throw throws NullPointerException",
+        "application.yml exposes ALL Actuator endpoints publicly (env vars, heap dumps, full bean context)"
+      ],
+      "notes": "Delete ErrorController entirely. Restrict Actuator to health and info only. This is Phase 0 — must happen before any extraction begins."
+    },
+    {
       "id": "S1",
-      "name": "Web / API Layer",
-      "description": "All HTTP controllers handling REST endpoints for albums, health info, and errors",
+      "name": "Album Catalog Service",
+      "action": "EXTRACT FIRST",
+      "description": "The only real business capability: album CRUD. Controller, domain entity, and all repository implementations are grouped together because they must be extracted as a unit — a controller without its entity and repository is non-functional.",
       "files": [
         "src/main/java/org/cloudfoundry/samples/music/web/AlbumController.java",
-        "src/main/java/org/cloudfoundry/samples/music/web/ErrorController.java",
-        "src/main/java/org/cloudfoundry/samples/music/web/InfoController.java"
-      ],
-      "notes": "Entry point for all client requests. Depends on domain model and repository abstraction."
-    },
-    {
-      "id": "S2",
-      "name": "Domain Model",
-      "description": "Core business entities — Album, ApplicationInfo, and ID generation utilities",
-      "files": [
         "src/main/java/org/cloudfoundry/samples/music/domain/Album.java",
-        "src/main/java/org/cloudfoundry/samples/music/domain/ApplicationInfo.java",
-        "src/main/java/org/cloudfoundry/samples/music/domain/RandomIdGenerator.java"
-      ],
-      "notes": "Shared across all layers. JPA annotations couple it to relational persistence; Mongo uses same POJO."
-    },
-    {
-      "id": "S3",
-      "name": "Persistence / Repository Layer",
-      "description": "All store implementations: JPA (H2/MySQL/Postgres), MongoDB, Redis, and in-memory",
-      "files": [
+        "src/main/java/org/cloudfoundry/samples/music/domain/RandomIdGenerator.java",
         "src/main/java/org/cloudfoundry/samples/music/repositories/AlbumRepository.java",
         "src/main/java/org/cloudfoundry/samples/music/repositories/jpa/JpaAlbumRepository.java",
         "src/main/java/org/cloudfoundry/samples/music/repositories/mongodb/MongoAlbumRepository.java",
         "src/main/java/org/cloudfoundry/samples/music/repositories/redis/RedisAlbumRepository.java"
       ],
-      "notes": "Four different backends behind one interface. Spring profiles select implementation at runtime."
+      "notes": "Album carries JPA annotations but is reused as-is for MongoDB — annotation conflict must be resolved during extraction. Target: Spring Boot 3.x, Java 17, PostgreSQL as default backend. CrudRepository interface provides a clean internal boundary. No circular dependencies to other capabilities.",
+      "user_stories": ["CAP-1-S1", "CAP-1-S2", "CAP-2-S1", "CAP-2-S2", "CAP-2-S3", "CAP-3-S1"]
     },
     {
-      "id": "S4",
-      "name": "Application Configuration",
-      "description": "Spring context initializer and Redis-specific bean wiring",
+      "id": "S2",
+      "name": "Data Initialization",
+      "action": "EXTRACT ALONGSIDE S1",
+      "description": "Hidden business rule: 'seed the catalog on first startup if empty'. Must travel with the Album Catalog Service extraction — if left behind, the extracted service starts empty with no demo data.",
+      "files": [
+        "src/main/java/org/cloudfoundry/samples/music/repositories/AlbumRepositoryPopulator.java",
+        "src/main/resources/albums.json"
+      ],
+      "notes": "The count()==0 guard is an implicit business rule buried in an ApplicationReadyEvent listener — easy to miss. During extraction, make it explicit: migrate to a DataInitializer component or a Flyway seed migration inside the new service.",
+      "user_stories": ["CAP-4-S1"]
+    },
+    {
+      "id": "S3",
+      "name": "Platform / Infrastructure Adapter",
+      "action": "DISSOLVE — not an extraction",
+      "description": "CF service detection, profile mapping, and InfoController. This seam does not get extracted into a microservice — it dissolves naturally when the Cloud Foundry dependency is removed and replaced with standard SPRING_PROFILES_ACTIVE env vars.",
       "files": [
         "src/main/java/org/cloudfoundry/samples/music/config/SpringApplicationContextInitializer.java",
-        "src/main/java/org/cloudfoundry/samples/music/config/data/RedisConfig.java"
+        "src/main/java/org/cloudfoundry/samples/music/config/data/RedisConfig.java",
+        "src/main/java/org/cloudfoundry/samples/music/web/InfoController.java"
       ],
-      "notes": "Controls which persistence profile is active. Tightly coupled to Cloud Foundry VCAP_SERVICES env vars."
-    },
-    {
-      "id": "S5",
-      "name": "Bootstrap / Seed Data",
-      "description": "Populates the album repository with sample data on startup",
-      "files": [
-        "src/main/java/org/cloudfoundry/samples/music/repositories/AlbumRepositoryPopulator.java"
-      ],
-      "notes": "Only needed in dev/demo. Hard-codes domain objects. Extracting it breaks no business logic."
+      "notes": "SpringApplicationContextInitializer runs before the Spring context is built — untestable and brittle. InfoController does new CfEnv() directly (not injected — cannot be mocked). Short-term fix: inject CfEnv. Medium-term: replace CF profile detection with env-var-based config. This class dissolves, it is not extracted.",
+      "user_stories": ["CAP-5-S1"]
     }
   ]
 }
