@@ -1,108 +1,101 @@
-Spring Music
-============
+# Team JeanClaude — Room 3
 
-This is a sample application for using database services on [Cloud Foundry](http://cloudfoundry.org) with the [Spring Framework](http://spring.io) and [Spring Boot](http://projects.spring.io/spring-boot/).
+## Participants
 
-This application has been built to store the same domain objects in one of a variety of different persistence technologies - relational, document, and key-value stores. This is not meant to represent a realistic use case for these technologies, since you would typically choose the one most applicable to the type of data you need to store, but it is useful for testing and experimenting with different types of services on Cloud Foundry.
+- Giniewicz, Grzegorz (Architect)
+- Debski, Mateusz (Developer)
+- Dworakowski, Jakub (Developer)
+- Kisielewska, Mariola (PM / Business Analyst)
+- Kucharski, Igor (Quality / Agentic)
+- Marcinczyk, Adrian (Developer)
+- Zaręba, Justyna (Tester)
 
-The application use Spring Java configuration and [bean profiles](http://docs.spring.io/spring-boot/docs/current/reference/html/boot-features-profiles.html) to configure the application and the connection objects needed to use the persistence stores. It also uses the [Spring Cloud Connectors](http://cloud.spring.io/spring-cloud-connectors/) library to inspect the environment when running on Cloud Foundry. See the [Cloud Foundry documentation](http://docs.cloudfoundry.org/buildpacks/java/spring-service-bindings.html) for details on configuring a Spring application for Cloud Foundry.
+## Scenario
 
-## Building
+Scenario 1: Code Modernization
 
-This project requires Java 8 or later to compile.
+## What We Built
 
-To build a runnable Spring Boot jar file, run the following command: 
+We took spring-music — a Spring Boot 2.4 / Java 8 application running on Cloud Foundry that stores album data across relational, MongoDB, and Redis backends — and proved it can be evolved safely without a big-bang rewrite.
 
-~~~
-$ ./gradlew clean assemble
-~~~
+We applied the **Strangler Fig** pattern. The monolith stays running. A new TypeScript/Express `album-service` replaces the `/albums` endpoints with a clean, corrected API contract. An Anti-Corruption Layer (`acl/`) translates between the legacy data model and the new one, stripping accidental fields (`albumId`, `_class`) and fixing types (`releaseYear: string` → `year: number`). A `PreToolUse` hook in `.claude/settings.json` deterministically blocks cross-boundary imports, so Claude itself cannot accidentally write code that violates the architecture.
 
-## Running the application locally
+Before touching anything, we wrote characterization tests that pin the monolith's current behavior — bugs included — so any unintentional regression fails loudly and immediately. A seam-risk scorer (`scouts/`) uses Claude API subagents to independently evaluate each extraction candidate and ranks them by risk. An ops runbook documents the cutover procedure for a 3am on-call engineer. An eval harness (`scorecard/`) measures whether Claude consistently proposes correct seam boundaries, giving the modernization workflow a defensible number instead of a vibe.
 
-One Spring bean profile should be activated to choose the database provider that the application should use. The profile is selected by setting the system property `spring.profiles.active` when starting the app.
+What runs: monolith (Java/Gradle), album-service (TypeScript/Node), ACL (TypeScript), scouts (Python), scorecard eval (Python).
+What's scaffolding: traffic routing from monolith to new service (nginx/gateway not wired yet).
 
-The application can be started locally using the following command:
+## Challenges Attempted
 
-~~~
-$ java -jar -Dspring.profiles.active=<profile> build/libs/spring-music.jar
-~~~
+| # | Challenge | Status | Notes |
+|---|---|---|---|
+| 1 | The Stories | done | 5 capability groups, 8 stories, stakeholder disagreements captured |
+| 2 | The Patient | done | Full monolith diagnosis: 9 problems, dependency map, severity table |
+| 3 | The Map | done | ADR-001: 4 named seams ranked by extraction risk, Strangler Fig strategy |
+| 4 | The Pin | done | 8 characterization test files pinning current behavior, bugs included |
+| 5 | The Cut | done | album-service with OpenAPI contract, Zod validation, integration tests |
+| 6 | The Fence | done | ACL translator + fence tests + PreToolUse hook blocking cross-boundary imports |
+| 7 | The Scorecard | done | Eval harness: golden dataset, boundary correctness metric, CI-ready |
+| 8 | The Weekend | done | 3-phase cutover runbook with rollback triggers and smoke tests |
+| 9 | The Scouts | done | Python coordinator + seam scorer using Claude API, fan-out risk analysis |
 
-where `<profile>` is one of the following values:
+## Key Decisions
 
-* `mysql`
-* `postgres`
-* `mongodb`
-* `redis`
+**Strangler Fig over big-bang rewrite** — the monolith stays live; we validate each extraction against characterization tests before switching traffic. Full rationale in [decisions/ADR-002-strangler-fig.md](decisions/ADR-002-strangler-fig.md).
 
-If no profile is provided, an in-memory relational database will be used. If any other profile is provided, the appropriate database server must be started separately. Spring Boot will auto-configure a connection to the database using it's auto-configuration defaults. The connection parameters can be configured by setting the appropriate [Spring Boot properties](http://docs.spring.io/spring-boot/docs/current/reference/html/common-application-properties.html).
+**TypeScript/Express for the first extracted service** — forces type corrections the Java codebase never caught (`releaseYear` was always a string, `year` is a number). Full rationale in [decisions/ADR-003-album-service-extraction.md](decisions/ADR-003-album-service-extraction.md).
 
-If more than one of these profiles is provided, the application will throw an exception and fail to start.
+**Hook for hard boundary enforcement, prompt for soft preferences** — the `PreToolUse` hook is deterministic and cannot be talked out of blocking an import. The CLAUDE.md preference for "add features to services/, not legacy" is probabilistic guidance. These are different tools for different guarantees. Full rationale in [decisions/ADR-004-acl-design.md](decisions/ADR-004-acl-design.md).
 
-## Running the application on Cloud Foundry
+**Characterization tests before everything** — no extraction happens until the pin suite is green. When behavior changes unintentionally, the failure names the exact field or endpoint that changed. See [decisions/ADR-001-decomposition.md](decisions/ADR-001-decomposition.md).
 
-When running on Cloud Foundry, the application will detect the type of database service bound to the application (if any). If a service of one of the supported types (MySQL, Postgres, Oracle, MongoDB, or Redis) is bound to the app, the appropriate Spring profile will be configured to use the database service. The connection strings and credentials needed to use the service will be extracted from the Cloud Foundry environment.
+## How to Run It
 
-If no bound services are found containing any of these values in the name, an in-memory relational database will be used.
+```bash
+# Requirements: Java 8+, Node 18+, Python 3.9+, Gradle
 
-If more than one service containing any of these values is bound to the application, the application will throw an exception and fail to start.
+# Legacy monolith (in-memory H2 by default)
+./gradlew bootRun
 
-After installing the 'cf' [command-line interface for Cloud Foundry](http://docs.cloudfoundry.org/cf-cli/), targeting a Cloud Foundry instance, and logging in, the application can be built and pushed using these commands:
+# Monolith characterization tests
+./gradlew test
 
-~~~
-$ cf push
-~~~
+# Album service (new extracted service)
+cd services/album-service
+npm install
+npm run dev        # starts on port 3000
+npm test           # integration + fence tests
 
-The application will be pushed using settings in the provided `manifest.yml` file. The output from the command will show the URL that has been assigned to the application.
+# ACL boundary tests
+cd acl
+npm install
+npm test
 
-### Creating and binding services
+# Scouts — agentic seam risk scoring
+cd scouts
+pip install -r requirements.txt
+python coordinator.py
 
-Using the provided manifest, the application will be created without an external database (in the `in-memory` profile). You can create and bind database services to the application using the information below.
+# Scorecard eval harness
+cd scorecard
+pip install -r requirements.txt
+python scorecard.py
+```
 
-#### System-managed services
+## If We Had More Time
 
-Depending on the Cloud Foundry service provider, persistence services might be offered and managed by the platform. These steps can be used to create and bind a service that is managed by the platform:
+1. **Wire the API Façade** — nginx or Spring Cloud Gateway routing `/albums/*` to album-service; currently the two services run independently without traffic routing.
+2. **PostgreSQL for album-service** — SQLite works locally but production needs a real database; the repository interface is already abstracted for this swap.
+3. **CI pipeline** — run characterization tests + fence tests + scorecard eval on every PR; the pieces exist, the workflow file does not.
+4. **Frontend modernization** — AngularJS 1.2.16 is end-of-life; explicitly deferred as a separate workstream.
+5. **Phase 2 from the ADR** — refactor `InfoController` (direct `new CfEnv()` instantiation) and dissolve Cloud Foundry dependency in favour of standard env-var configuration.
 
-~~~
-# view the services available
-$ cf marketplace
-# create a service instance
-$ cf create-service <service> <service plan> <service name>
-# bind the service instance to the application
-$ cf bind-service <app name> <service name>
-# restart the application so the new service is detected
-$ cf restart
-~~~
+## How We Used Claude Code
 
-#### User-provided services
+**What worked best:** three-level `CLAUDE.md` — the project-level file taught Claude the architecture rules once, and every subsequent session respected the Strangler Fig boundary without re-explanation. The `PreToolUse` hook meant we never had to argue with Claude about whether to write across the boundary; it simply couldn't.
 
-Cloud Foundry also allows service connection information and credentials to be provided by a user. In order for the application to detect and connect to a user-provided service, a single `uri` field should be given in the credentials using the form `<dbtype>://<username>:<password>@<hostname>:<port>/<databasename>`.
+**Biggest time save:** characterization tests. Claude read the monolith source and generated behavior-pinning tests in one pass — tests that captured the PUT/POST semantic inversion and the implicit `count() == 0` seeding rule, neither of which was documented anywhere.
 
-These steps use examples for username, password, host name, and database name that should be replaced with real values.
+**What surprised us:** the scouts. Fan-out risk scoring with explicit context in each Task call produced a ranking that agreed with the human architect's judgment on 4 out of 5 seams — and disagreed on the one seam where the human had underestimated data-model tangle.
 
-~~~
-# create a user-provided Oracle database service instance
-$ cf create-user-provided-service oracle-db -p '{"uri":"oracle://root:secret@dbserver.example.com:1521/mydatabase"}'
-# create a user-provided MySQL database service instance
-$ cf create-user-provided-service mysql-db -p '{"uri":"mysql://root:secret@dbserver.example.com:3306/mydatabase"}'
-# bind a service instance to the application
-$ cf bind-service <app name> <service name>
-# restart the application so the new service is detected
-$ cf restart
-~~~
-
-#### Changing bound services
-
-To test the application with different services, you can simply stop the app, unbind a service, bind a different database service, and start the app:
-
-~~~
-$ cf unbind-service <app name> <service name>
-$ cf bind-service <app name> <service name>
-$ cf restart
-~~~
-
-#### Database drivers
-
-Database drivers for MySQL, Postgres, Microsoft SQL Server, MongoDB, and Redis are included in the project.
-
-To connect to an Oracle database, you will need to download the appropriate driver (e.g. from http://www.oracle.com/technetwork/database/features/jdbc/index-091264.html). Then make a `libs` directory in the `spring-music` project, and move the driver, `ojdbc7.jar` or `ojdbc8.jar`, into the `libs` directory.
-In `build.gradle`, uncomment the line `compile files('libs/ojdbc8.jar')` or `compile files('libs/ojdbc7.jar')` and run `./gradle assemble`
+**Where it saved the most time:** Adrian used Claude Code to generate the full TypeScript service scaffold — models, routes, repository, OpenAPI spec, and tests — from the legacy `AlbumController` source. What would have been a half-day of boilerplate took under 30 minutes, with fence tests catching the one field that slipped through.

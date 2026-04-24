@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Team JeanClaude — Code Modernization</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0f1117;
+    color: #e2e8f0;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .deck {
+    width: 100%;
+    height: 100vh;
+    position: relative;
+  }
+
+  .slide {
+    display: none;
+    position: absolute;
+    inset: 0;
+    padding: 60px 80px;
+    flex-direction: column;
+    justify-content: center;
+    animation: fadeIn 0.3s ease;
+  }
+
+  .slide.active { display: flex; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Accent colours */
+  .accent  { color: #7c3aed; }
+  .accent2 { color: #06b6d4; }
+  .green   { color: #10b981; }
+  .yellow  { color: #f59e0b; }
+  .red     { color: #ef4444; }
+
+  /* Title slide */
+  .slide-title {
+    background: linear-gradient(135deg, #0f1117 0%, #1a1035 100%);
+    align-items: center;
+    text-align: center;
+  }
+  .slide-title .team-badge {
+    background: #7c3aed;
+    color: #fff;
+    padding: 6px 20px;
+    border-radius: 999px;
+    font-size: 0.9rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 28px;
+  }
+  .slide-title h1 {
+    font-size: 3.6rem;
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 16px;
+    background: linear-gradient(90deg, #a78bfa, #38bdf8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .slide-title .subtitle {
+    font-size: 1.3rem;
+    color: #94a3b8;
+    margin-bottom: 40px;
+  }
+  .slide-title .team-list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+  }
+  .slide-title .team-list span {
+    background: #1e293b;
+    border: 1px solid #334155;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: #cbd5e1;
+  }
+
+  /* Standard slide */
+  h2 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 32px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #7c3aed;
+  }
+  h3 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: #a78bfa;
+  }
+  p, li {
+    font-size: 1.05rem;
+    line-height: 1.7;
+    color: #cbd5e1;
+  }
+  ul { padding-left: 1.4em; }
+  li { margin-bottom: 6px; }
+
+  /* Two-column */
+  .cols { display: grid; gap: 40px; }
+  .cols-2 { grid-template-columns: 1fr 1fr; }
+  .cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+  /* Cards */
+  .card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 24px;
+  }
+  .card.highlight { border-color: #7c3aed; }
+
+  /* Table */
+  table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+  th {
+    background: #1e293b;
+    color: #94a3b8;
+    text-align: left;
+    padding: 10px 14px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-size: 0.78rem;
+  }
+  td { padding: 10px 14px; border-bottom: 1px solid #1e293b; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #1e293b55; }
+
+  /* Badge */
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+  .badge-done    { background: #064e3b; color: #34d399; }
+  .badge-partial { background: #451a03; color: #fbbf24; }
+  .badge-stretch { background: #1e1b4b; color: #a78bfa; }
+
+  /* Code block */
+  code {
+    background: #1e293b;
+    color: #7dd3fc;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.9em;
+  }
+  pre {
+    background: #0d1117;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 20px;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.88rem;
+    line-height: 1.6;
+    color: #e2e8f0;
+    overflow: auto;
+  }
+
+  /* Architecture diagram */
+  .arch {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    font-size: 0.88rem;
+    margin: 20px 0;
+  }
+  .arch-box {
+    background: #1e293b;
+    border: 2px solid #334155;
+    border-radius: 10px;
+    padding: 14px 20px;
+    text-align: center;
+    min-width: 130px;
+  }
+  .arch-box.legacy  { border-color: #ef4444; }
+  .arch-box.acl     { border-color: #f59e0b; }
+  .arch-box.new     { border-color: #10b981; }
+  .arch-box.hook    { border-color: #7c3aed; }
+  .arch-box .label  { font-size: 0.7rem; color: #64748b; margin-bottom: 4px; text-transform: uppercase; }
+  .arch-box .name   { font-weight: 700; }
+  .arch-arrow {
+    color: #475569;
+    font-size: 1.4rem;
+    padding: 0 8px;
+  }
+
+  /* Navigation */
+  nav {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 999px;
+    padding: 8px 20px;
+    z-index: 100;
+  }
+  nav button {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 4px 10px;
+    border-radius: 6px;
+    transition: all 0.15s;
+  }
+  nav button:hover { background: #334155; color: #e2e8f0; }
+  #slide-counter { font-size: 0.85rem; color: #64748b; min-width: 60px; text-align: center; }
+
+  /* Keyboard hint */
+  .kbd-hint {
+    position: fixed;
+    bottom: 28px;
+    right: 32px;
+    font-size: 0.75rem;
+    color: #475569;
+  }
+
+  /* Number highlight */
+  .stat { font-size: 2.8rem; font-weight: 800; color: #a78bfa; }
+  .stat-label { font-size: 0.85rem; color: #64748b; margin-top: 4px; }
+
+  .rule-block {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    background: #1e293b;
+    border-left: 4px solid #7c3aed;
+    border-radius: 0 8px 8px 0;
+    padding: 14px 18px;
+    margin-bottom: 12px;
+  }
+  .rule-num { font-size: 1.3rem; font-weight: 800; color: #7c3aed; min-width: 28px; }
+</style>
+</head>
+<body>
+
+<div class="deck">
+
+  <!-- SLIDE 1: Title -->
+  <section class="slide slide-title active">
+    <div class="team-badge">Room 3 &nbsp;·&nbsp; Hackathon 2026</div>
+    <h1>Team JeanClaude</h1>
+    <p class="subtitle">Scenario 1 — Code Modernization<br>Proving a legacy monolith can be evolved safely</p>
+    <div class="team-list">
+      <span>Giniewicz, Grzegorz — Architect</span>
+      <span>Debski, Mateusz — Developer</span>
+      <span>Dworakowski, Jakub — Developer</span>
+      <span>Kisielewska, Mariola — PM / BA</span>
+      <span>Kucharski, Igor — Quality / Agentic</span>
+      <span>Marcinczyk, Adrian — Developer</span>
+      <span>Zaręba, Justyna — Tester</span>
+    </div>
+  </section>
+
+  <!-- SLIDE 2: The Problem -->
+  <section class="slide">
+    <h2>The Problem</h2>
+    <div class="cols cols-2">
+      <div>
+        <h3>Northwind Logistics Catalog</h3>
+        <ul>
+          <li>Spring Boot <strong>2.4.0</strong> — end of OSS support</li>
+          <li>Java <strong>8</strong> — should be 17+</li>
+          <li>AngularJS <strong>1.2.16</strong> — end of life Dec 2021</li>
+          <li>3 database backends switched by Spring Profiles</li>
+          <li>Cloud Foundry dependency baked into bootstrap</li>
+          <li>Board approved "modernization" — without defining it</li>
+        </ul>
+      </div>
+      <div>
+        <h3>What makes it hard</h3>
+        <ul>
+          <li>Business logic hidden in an <strong>event listener</strong></li>
+          <li>God class in config — CF detection + profile mapping + validation</li>
+          <li><code>/errors/kill</code> calls <code>System.exit(1)</code> — unauthenticated</li>
+          <li>All Actuator endpoints exposed: env vars, heap dumps, beans</li>
+          <li><strong>Zero test coverage</strong> — one empty context-load test</li>
+          <li>PUT and POST both call <code>repository.save()</code></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 3: Strategy -->
+  <section class="slide">
+    <h2>Our Strategy — Strangler Fig</h2>
+    <p style="margin-bottom:28px; color:#94a3b8;">Don't rewrite. Don't stop the world. Extract one seam at a time, keep the monolith running, prove each extraction with tests before switching traffic.</p>
+    <div class="arch">
+      <div class="arch-box legacy">
+        <div class="label">Legacy</div>
+        <div class="name" style="color:#f87171">spring-music<br><small style="color:#64748b">Spring Boot 2.4</small></div>
+      </div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-box acl">
+        <div class="label">Bridge</div>
+        <div class="name" style="color:#fbbf24">ACL<br><small style="color:#64748b">translator.ts</small></div>
+      </div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-box new">
+        <div class="label">New Service</div>
+        <div class="name" style="color:#34d399">album-service<br><small style="color:#64748b">TypeScript / Express</small></div>
+      </div>
+      <div class="arch-arrow" style="padding-left:40px">⬆</div>
+      <div class="arch-box hook" style="position:absolute;right:100px;top:200px">
+        <div class="label">Guardrail</div>
+        <div class="name" style="color:#a78bfa; font-size:0.82rem">PreToolUse hook<br><small style="color:#64748b">blocks cross-boundary imports</small></div>
+      </div>
+    </div>
+    <div class="cols cols-3" style="margin-top:24px">
+      <div class="card">
+        <h3>Phase 0</h3>
+        <p>Delete danger endpoints. Restrict Actuator. Write characterization tests.</p>
+      </div>
+      <div class="card highlight">
+        <h3>Phase 1 ← we are here</h3>
+        <p>Extract Album Catalog Service. ACL translates models. Fence tests verify boundary.</p>
+      </div>
+      <div class="card">
+        <h3>Phase 2</h3>
+        <p>Dissolve CF dependency. Replace profile detection with env vars. Decommission monolith.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 4: Challenges -->
+  <section class="slide">
+    <h2>Challenges Completed</h2>
+    <table>
+      <tr><th>#</th><th>Challenge</th><th>Status</th><th>Deliverable</th></tr>
+      <tr><td>1</td><td>The Stories</td><td><span class="badge badge-done">done</span></td><td><code>stories/USER_STORIES.md</code> — 8 stories, stakeholder disagreements</td></tr>
+      <tr><td>2</td><td>The Patient</td><td><span class="badge badge-done">done</span></td><td><code>docs/patient-diagnosis.md</code> — 9 problems, dependency map</td></tr>
+      <tr><td>3</td><td>The Map</td><td><span class="badge badge-done">done</span></td><td><code>decisions/ADR-001</code> — 4 seams ranked by extraction risk</td></tr>
+      <tr><td>4</td><td>The Pin</td><td><span class="badge badge-done">done</span></td><td>8 characterization test files — bugs pinned, not corrected</td></tr>
+      <tr><td>5</td><td>The Cut</td><td><span class="badge badge-done">done</span></td><td><code>services/album-service/</code> — OpenAPI, Zod, integration tests</td></tr>
+      <tr><td>6</td><td>The Fence</td><td><span class="badge badge-done">done</span></td><td><code>acl/</code> + <code>PreToolUse</code> hook + fence tests</td></tr>
+      <tr><td>7</td><td>The Scorecard</td><td><span class="badge badge-done">done</span></td><td><code>scorecard/</code> — golden dataset, boundary correctness eval</td></tr>
+      <tr><td>8</td><td>The Weekend</td><td><span class="badge badge-done">done</span></td><td><code>docs/cutover-runbook.md</code> — 3-phase ops runbook</td></tr>
+      <tr><td>9</td><td>The Scouts</td><td><span class="badge badge-stretch">stretch ✓</span></td><td><code>scouts/</code> — Claude API fan-out seam risk scoring</td></tr>
+    </table>
+  </section>
+
+  <!-- SLIDE 5: Key Decisions -->
+  <section class="slide">
+    <h2>Key Decisions</h2>
+    <div class="rule-block">
+      <div class="rule-num">1</div>
+      <div>
+        <strong>Strangler Fig over rewrite</strong> — monolith stays in production throughout. Each extraction is validated by the characterization suite before traffic switches. Risk is incremental, not all-at-once. <em style="color:#64748b">ADR-002</em>
+      </div>
+    </div>
+    <div class="rule-block">
+      <div class="rule-num">2</div>
+      <div>
+        <strong>TypeScript for the first extracted service</strong> — forced type corrections the Java code never caught. <code>releaseYear: string</code> → <code>year: number</code>. The ACL makes the type fix explicit and testable. <em style="color:#64748b">ADR-003</em>
+      </div>
+    </div>
+    <div class="rule-block">
+      <div class="rule-num">3</div>
+      <div>
+        <strong>Hook for hard blocks, prompt for soft preferences</strong> — the <code>PreToolUse</code> hook deterministically blocks cross-boundary imports. Claude cannot be talked out of it. The CLAUDE.md preference for "add features to services/" is probabilistic guidance. Different guarantees, different tools. <em style="color:#64748b">ADR-004</em>
+      </div>
+    </div>
+    <div class="rule-block">
+      <div class="rule-num">4</div>
+      <div>
+        <strong>Characterization tests before everything</strong> — no extraction starts until the pin suite is green. When behavior changes unintentionally, the failure names the exact endpoint or field that changed. <em style="color:#64748b">ADR-001</em>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 6: Three-level CLAUDE.md -->
+  <section class="slide">
+    <h2>Three-Level CLAUDE.md</h2>
+    <p style="margin-bottom:24px;color:#94a3b8">Each level adds context for exactly the code that lives there. Claude never needs to be re-taught what it already knows from a parent level.</p>
+    <div class="cols cols-3">
+      <div class="card highlight">
+        <h3>📁 Project root</h3>
+        <p><code>CLAUDE.md</code></p>
+        <br>
+        <ul>
+          <li>Architecture hard rules</li>
+          <li>Module map</li>
+          <li>All challenges + status</li>
+          <li>Running instructions</li>
+          <li>What NOT to do</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>📁 services/</h3>
+        <p><code>services/CLAUDE.md</code></p>
+        <br>
+        <ul>
+          <li>Service conventions (TypeScript strict, Zod, OpenAPI)</li>
+          <li>Boundary rule: never import from <code>src/</code></li>
+          <li>Port assignments</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>📁 services/album-service/</h3>
+        <p><code>album-service/CLAUDE.md</code></p>
+        <br>
+        <ul>
+          <li>Domain model with types</li>
+          <li>What changed vs legacy</li>
+          <li>Full endpoint contract</li>
+        </ul>
+      </div>
+    </div>
+    <div style="margin-top:16px" class="card">
+      <h3>📁 acl/ — <code>acl/CLAUDE.md</code></h3>
+      <p>Translation contract table (both directions), fence invariant definition, file map.</p>
+    </div>
+  </section>
+
+  <!-- SLIDE 7: The Fence & Hook -->
+  <section class="slide">
+    <h2>The Fence — Boundary Enforcement</h2>
+    <div class="cols cols-2">
+      <div>
+        <h3>The problem it solves</h3>
+        <p>Legacy field names (<code>releaseYear</code>, <code>albumId</code>, <code>_class</code>) must never appear in new service API responses. Without enforcement, they leak — silently.</p>
+        <br>
+        <h3>Three enforcement layers</h3>
+        <ul>
+          <li><strong class="accent">Hook</strong> — <code>PreToolUse</code> blocks any file write containing a cross-boundary import. Deterministic. Cannot be overridden by prompting.</li>
+          <li><strong class="accent2">Prompt</strong> — CLAUDE.md preference guides where new features go. Probabilistic.</li>
+          <li><strong class="green">Test</strong> — <code>fence.test.ts</code> asserts no legacy field name appears in any album-service response shape. Fails with exact field name.</li>
+        </ul>
+      </div>
+      <div>
+        <pre>// fence.test.ts
+const LEGACY_FIELDS = [
+  "releaseYear",
+  "albumId",
+  "_class"
+];
+
+it("no legacy fields in response", () => {
+  const response = getAlbum("1");
+  LEGACY_FIELDS.forEach(field => {
+    expect(
+      JSON.stringify(response)
+    ).not.toContain(field);
+  });
+});</pre>
+        <p style="margin-top:12px;font-size:0.85rem;color:#64748b">If a field slips through, the test names exactly which field. No guessing.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 8: The Scouts -->
+  <section class="slide">
+    <h2>The Scouts — Agentic Seam Scoring</h2>
+    <div class="cols cols-2">
+      <div>
+        <h3>What it does</h3>
+        <p>One Claude API subagent per seam, running in parallel. Each independently scores its candidate on four dimensions and returns structured JSON. A coordinator aggregates into a ranked list.</p>
+        <br>
+        <h3>Scoring dimensions</h3>
+        <ul>
+          <li><strong>Coupling</strong> — how many things depend on this seam</li>
+          <li><strong>Test coverage</strong> — how much behavior is pinned</li>
+          <li><strong>Data-model tangle</strong> — how messy is the data boundary</li>
+          <li><strong>Business criticality</strong> — what breaks if this goes wrong</li>
+        </ul>
+        <br>
+        <h3>Result</h3>
+        <p>Scouts agreed with the human architect on <strong class="green">4 of 5 seams</strong>. Disagreed on Platform Adapter — scouts rated data-model tangle higher than the human had. <em style="color:#64748b">Human updated the ADR.</em></p>
+      </div>
+      <div>
+        <pre>// coordinator.py (simplified)
+seams = load_json("seams.json")
+
+with ThreadPoolExecutor() as ex:
+    futures = {
+        ex.submit(score_seam, s): s
+        for s in seams
+    }
+
+results = [
+    f.result()
+    for f in as_completed(futures)
+]
+
+ranked = sorted(
+    results,
+    key=lambda r: r["risk_score"]
+)</pre>
+        <p style="margin-top:12px;font-size:0.85rem;color:#64748b">Context passed explicitly to each subagent — subagents don't inherit coordinator context.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 9: Claude Code Usage -->
+  <section class="slide">
+    <h2>How We Used Claude Code</h2>
+    <div class="cols cols-2">
+      <div>
+        <h3 class="green">What worked best</h3>
+        <ul>
+          <li><strong>Three-level CLAUDE.md</strong> — architecture rules taught once, respected every session</li>
+          <li><strong>Characterization tests</strong> — Claude read legacy source, generated behavior-pinning tests in one pass including the PUT/POST inversion bug</li>
+          <li><strong>Scaffold generation</strong> — full TypeScript service (models, routes, repo, OpenAPI, tests) from Java source in under 30 minutes</li>
+          <li><strong>ADR writing</strong> — architect gave seam names, Claude drafted the consequences and tradeoffs</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="yellow">What surprised us</h3>
+        <ul>
+          <li>The hook made boundary enforcement <em>invisible</em> — Claude simply couldn't write the wrong import, no arguing required</li>
+          <li>Scouts disagreed with human on one seam — and were right</li>
+          <li>CLAUDE.md directory files meant Claude never confused monolith conventions with new-service conventions mid-session</li>
+        </ul>
+        <br>
+        <h3 class="red">What we'd do differently</h3>
+        <ul>
+          <li>Set up CLAUDE.md on day one, not after challenges started</li>
+          <li>Write characterization tests before any other code — they became the safety net for everything downstream</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 10: What's next -->
+  <section class="slide">
+    <h2>If We Had More Time</h2>
+    <div class="cols cols-2">
+      <div>
+        <div class="card" style="margin-bottom:14px">
+          <h3>1. Wire the API Façade</h3>
+          <p>nginx or Spring Cloud Gateway routing <code>/albums/*</code> to album-service. The two services run — traffic routing is the missing piece.</p>
+        </div>
+        <div class="card" style="margin-bottom:14px">
+          <h3>2. PostgreSQL for album-service</h3>
+          <p>Repository interface is abstracted. Swap SQLite → PostgreSQL is a one-line config change. Production needs it.</p>
+        </div>
+        <div class="card">
+          <h3>3. CI pipeline</h3>
+          <p>Characterization tests + fence tests + scorecard eval on every PR. All pieces exist; workflow YAML does not.</p>
+        </div>
+      </div>
+      <div>
+        <div class="card" style="margin-bottom:14px">
+          <h3>4. Frontend modernization</h3>
+          <p>AngularJS 1.2.16 is end-of-life. Explicitly deferred — separate workstream, separate skills, separate risk.</p>
+        </div>
+        <div class="card" style="margin-bottom:14px">
+          <h3>5. Phase 2 from the ADR</h3>
+          <p>Refactor <code>InfoController</code> (<code>new CfEnv()</code> → injected). Dissolve CF dependency. Replace profile detection with env vars.</p>
+        </div>
+        <div class="card highlight">
+          <div style="display:flex;gap:32px;justify-content:space-around;text-align:center;padding:8px 0">
+            <div><div class="stat">9</div><div class="stat-label">challenges completed</div></div>
+            <div><div class="stat">44</div><div class="stat-label">files added</div></div>
+            <div><div class="stat">4</div><div class="stat-label">ADRs written</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div><!-- /deck -->
+
+<!-- Navigation -->
+<nav>
+  <button onclick="go(-1)">&#8592;</button>
+  <span id="slide-counter">1 / 10</span>
+  <button onclick="go(1)">&#8594;</button>
+</nav>
+<div class="kbd-hint">← → arrow keys to navigate</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  let current = 0;
+
+  function show(n) {
+    slides[current].classList.remove('active');
+    current = (n + slides.length) % slides.length;
+    slides[current].classList.add('active');
+    document.getElementById('slide-counter').textContent =
+      (current + 1) + ' / ' + slides.length;
+  }
+
+  function go(dir) { show(current + dir); }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown')  go(1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')    go(-1);
+  });
+</script>
+</body>
+</html>
