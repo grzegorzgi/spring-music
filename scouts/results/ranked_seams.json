@@ -1,0 +1,68 @@
+{
+  "project": "spring-music",
+  "generated_at": "2026-04-24T10:00:00Z",
+  "model": "claude-sonnet-4-6",
+  "scoring_dimensions": {
+    "coupling": "weight 30% — cross-layer references",
+    "test_coverage": "weight 20% — inverse: no tests = high risk",
+    "data_tangle": "weight 25% — shared / entangled data model",
+    "business_criticality": "weight 25% — production impact if broken"
+  },
+  "ranked_seams": [
+    {
+      "id": "S3",
+      "name": "Persistence / Repository Layer",
+      "coupling": 9,
+      "test_coverage": 8,
+      "data_tangle": 9,
+      "business_criticality": 9,
+      "risk_score": 8.8,
+      "rationale": "Four backend implementations (JPA, MongoDB, Redis, in-memory) behind a single interface, selected by Spring profiles that read Cloud Foundry VCAP_SERVICES at runtime. Extracting this without breaking profile-switching logic requires significant refactoring of both the config layer and the domain model's JPA annotations.",
+      "recommendation": "Extract last — high risk, needs refactor first"
+    },
+    {
+      "id": "S4",
+      "name": "Application Configuration",
+      "coupling": 8,
+      "test_coverage": 9,
+      "data_tangle": 7,
+      "business_criticality": 8,
+      "risk_score": 8.0,
+      "rationale": "SpringApplicationContextInitializer hard-codes Cloud Foundry VCAP_SERVICES parsing to wire the correct datasource bean; RedisConfig adds Lettuce connection pooling on top. Zero unit tests and tight coupling to CF environment variables make this extremely fragile to move.",
+      "recommendation": "Extract last — high risk, needs refactor first"
+    },
+    {
+      "id": "S2",
+      "name": "Domain Model",
+      "coupling": 7,
+      "test_coverage": 6,
+      "data_tangle": 8,
+      "business_criticality": 8,
+      "risk_score": 7.3,
+      "rationale": "Album carries both JPA annotations (@Entity, @Id) and is reused as-is for MongoDB — a dual-purpose POJO that ties the domain model to two different persistence strategies. Any extraction must resolve this annotation conflict before the seam can stand alone.",
+      "recommendation": "Extract after low-risk seams are stable"
+    },
+    {
+      "id": "S1",
+      "name": "Web / API Layer",
+      "coupling": 6,
+      "test_coverage": 5,
+      "data_tangle": 4,
+      "business_criticality": 7,
+      "risk_score": 5.6,
+      "rationale": "AlbumController calls the repository interface directly with no service layer in between; ErrorController and InfoController are stateless. Extractable once the repository interface is stable, but the lack of a service layer means business logic would need to be introduced during extraction.",
+      "recommendation": "Extract after low-risk seams are stable"
+    },
+    {
+      "id": "S5",
+      "name": "Bootstrap / Seed Data",
+      "coupling": 2,
+      "test_coverage": 3,
+      "data_tangle": 2,
+      "business_criticality": 1,
+      "risk_score": 2.0,
+      "rationale": "AlbumRepositoryPopulator only seeds demo data on startup and has no production dependencies — it is a pure dev/demo concern. Can be extracted or deleted with zero impact on any other seam.",
+      "recommendation": "Extract first — low coupling and risk"
+    }
+  ]
+}
