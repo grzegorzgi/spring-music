@@ -1,0 +1,178 @@
+{
+  "generated_at": "2026-04-24T13:19:02.638754Z",
+  "model": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "dataset": "spring-music",
+  "metrics": {
+    "total_examples": 12,
+    "parse_errors": 1,
+    "accuracy": 0.909,
+    "precision_correct": 1.0,
+    "precision_incorrect": 0.9,
+    "false_confidence_rate": 0.091,
+    "high_confidence_count": 11,
+    "false_confident_count": 1,
+    "by_difficulty": {
+      "easy": {
+        "count": 4,
+        "correct": 3,
+        "accuracy": 0.75
+      },
+      "medium": {
+        "count": 4,
+        "correct": 4,
+        "accuracy": 1.0
+      },
+      "hard": {
+        "count": 3,
+        "correct": 3,
+        "accuracy": 1.0
+      }
+    }
+  },
+  "results": [
+    {
+      "id": "E01",
+      "difficulty": "easy",
+      "label": "CORRECT",
+      "decision": "INCORRECT",
+      "confidence": "HIGH",
+      "reasoning": "Including all multi-database repository implementations (JPA, MongoDB, Redis) violates the modernization goal of standardizing on PostgreSQL and creates unnecessary complexity in the extracted service. The service should commit to PostgreSQL-only persistence with a clean Repository interface, eliminating multi-backend abstraction that was a monolith crutch.",
+      "correct": false,
+      "false_confident": true,
+      "attempts": 3,
+      "error": null
+    },
+    {
+      "id": "E02",
+      "difficulty": "easy",
+      "label": "INCORRECT",
+      "decision": "INCORRECT",
+      "confidence": "HIGH",
+      "reasoning": "This extracts only a storage adapter, not a bounded domain service. The Album Catalog business logic and controller remain in the monolith with no mechanism to invoke Redis, creating an orphaned component that cannot operate independently and violates the stated goal of extracting the Album Catalog as a cohesive unit.",
+      "correct": true,
+      "false_confident": false,
+      "attempts": 3,
+      "error": null
+    },
+    {
+      "id": "E03",
+      "difficulty": "easy",
+      "label": "INCORRECT",
+      "decision": "INCORRECT",
+      "confidence": "HIGH",
+      "reasoning": "Extracting only the controller without its repositories violates cohesion and creates a distributed monolith anti-pattern. The controller will require remote calls back to monolith repositories, introducing network latency, failure modes, and tight coupling that defeats the purpose of service extraction.",
+      "correct": true,
+      "false_confident": false,
+      "attempts": 3,
+      "error": null
+    },
+    {
+      "id": "E04",
+      "difficulty": "easy",
+      "label": "INCORRECT",
+      "decision": "INCORRECT",
+      "confidence": "HIGH",
+      "reasoning": "ErrorController and InfoController are not a cohesive unit suitable for extraction\u2014they serve different purposes (chaos/debugging vs. operational info) and lack a meaningful external API contract. This extraction contradicts the modernisation goal to eliminate dangerous unauthenticated chaos endpoints; they should be deleted, not promoted to a separate service.",
+      "correct": true,
+      "false_confident": false,
+      "attempts": 3,
+      "error": null
+    },
+    {
+      "id": "E05",
+      "difficulty": "medium",
+      "label": "CORRECT",
+      "decision": "CORRECT",
+      "confidence": "HIGH",
+      "reasoning": "This extraction is cohesive and low-coupling: it takes the complete Album domain (entity, controller, JPA repository) with a single persistence backend, eliminating multi-database complexity. It cleanly severs the monolith by removing Spring profile switching and VCAP_SERVICES auto-configuration, while RandomIdGenerator and AlbumRepositoryPopulator are tightly bound to Album lifecycle and belong with the extraction.",
+      "correct": true,
+      "false_confident": false,
+      "attempts": 3,
+      "error": null
+    },
+    {
+      "id": "E06",
+      "difficulty": "medium",
+      "label": "INCORRECT",
+      "decision": "INCORRECT",
+      "confidence": "HIGH",
+      "reasoning": "Leaving AlbumRepositoryPopulator in the monolith creates a dangling dependency on Album and repositories that no longer exist there, violating clean separation. The extracted service should own its own seed data concern; splitting it guarantees operational friction and schema drift between services.",
+      "correct": true,
+      "false_confident": false,
+      "attempts": 3,
+      "error": null
+    },
+    {
+      "id": "E07",
+      "difficulty": "medium",
+      "label": "INCORRECT",
+      "decision": "INCORRECT",
+      "confidence": "HIGH",
+      "reasoning": "Configuration initialization is infrastructure-level bootstrapping, not a business domain service\u2014extracting it as a separate service creates costly runtime coupling and deployment complexity for no cohesion gain. RedisConfig belongs with the monolith's data layer; if the goal is to eliminate Redis optionality, delete it rather than extract it.",
+      "correct": true,
+      "false_confident": false,
+      "attempts": 3,
+      "error": null
+    },
+    {
+      "id": "E08",
+      "difficulty": "medium",
+      "label": "INCORRECT",
+      "decision": "INCORRECT",
+      "confidence": "HIGH",
+      "reasoning": "Extracting only the domain model as a shared library creates tight coupling between monolith and services via a common dependency, making it harder to evolve contracts independently. ApplicationInfo is infrastructure metadata that shouldn't be in a domain library\u2014it couples the library to deployment concerns and contradicts the extraction goal of removing Cloud Foundry dependencies.",
+      "correct": true,
+      "false_confident": false,
+      "attempts": 3,
+      "error": null
+    },
+    {
+      "id": "E09",
+      "difficulty": "hard",
+      "label": "INCORRECT",
+      "decision": "INCORRECT",
+      "confidence": "HIGH",
+      "reasoning": "Exposing both 'albumId' and 'id' in the external API leaks internal implementation details and creates API fragility. The extraction scope is otherwise sound, but the API contract must be cleaned before extraction: normalize to a single, public identifier field.",
+      "correct": true,
+      "false_confident": false,
+      "attempts": 3,
+      "error": null
+    },
+    {
+      "id": "E10",
+      "difficulty": "hard",
+      "label": "CORRECT",
+      "decision": null,
+      "confidence": null,
+      "reasoning": null,
+      "correct": false,
+      "false_confident": false,
+      "attempts": 3,
+      "error": "Expecting value: line 1 column 1 (char 0)"
+    },
+    {
+      "id": "E11",
+      "difficulty": "hard",
+      "label": "INCORRECT",
+      "decision": "INCORRECT",
+      "confidence": "HIGH",
+      "reasoning": "AlbumRepositoryPopulator is a bootstrapping utility, not a domain service\u2014extracting it as a separate service adds deployment complexity and runtime coupling for what should be a one-time initialization concern. Seed data belongs in the Album Catalog Service itself (via data.sql or liquibase scripts), eliminating the need for inter-service communication during startup and reducing operational burden.",
+      "correct": true,
+      "false_confident": false,
+      "attempts": 3,
+      "error": null
+    },
+    {
+      "id": "E12",
+      "difficulty": "hard",
+      "label": "INCORRECT",
+      "decision": "INCORRECT",
+      "confidence": "HIGH",
+      "reasoning": "Retaining SpringApplicationContextInitializer defeats the modernisation goal of removing Cloud Foundry dependencies and couples the extracted service to Cloud Foundry's VCAP_SERVICES runtime. The service should use standard Spring profiles or environment variables (12-factor app), not carry forward the monolith's infrastructure coupling.",
+      "correct": true,
+      "false_confident": false,
+      "attempts": 3,
+      "error": null
+    }
+  ]
+}
