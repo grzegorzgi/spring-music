@@ -1,0 +1,188 @@
+{
+  "project": "spring-music",
+  "description": "Golden dataset for evaluating Claude's ability to judge extraction boundaries in the Spring Music monolith. Each example is a proposed extraction plan; the label is the ground truth from ADR-001-decomposition.md.",
+  "label_schema": {
+    "CORRECT": "This boundary is a good extraction candidate — cohesive, low coupling, clean API contract",
+    "INCORRECT": "This boundary would be a poor extraction — splits cohesion, leaves dangling deps, or exposes internals"
+  },
+  "difficulty_schema": {
+    "easy": "Clear-cut case, a well-reasoned model should get this right at HIGH confidence",
+    "medium": "Requires understanding of coupling and data ownership",
+    "hard": "Boundary case — plausible but wrong, or correct for non-obvious reasons"
+  },
+  "examples": [
+    {
+      "id": "E01",
+      "difficulty": "easy",
+      "label": "CORRECT",
+      "title": "Full Album Catalog Service",
+      "description": "Extract AlbumController, Album domain entity, RandomIdGenerator, all repository implementations (JpaAlbumRepository, MongoAlbumRepository, RedisAlbumRepository), and AlbumRepositoryPopulator as a standalone Album Catalog Service with its own persistence.",
+      "included": [
+        "web/AlbumController.java",
+        "domain/Album.java",
+        "domain/RandomIdGenerator.java",
+        "repositories/jpa/JpaAlbumRepository.java",
+        "repositories/mongodb/MongoAlbumRepository.java",
+        "repositories/redis/RedisAlbumRepository.java",
+        "repositories/AlbumRepositoryPopulator.java"
+      ],
+      "excluded_from_monolith": ["ErrorController.java", "InfoController.java", "SpringApplicationContextInitializer.java"],
+      "ground_truth_reasoning": "This is the canonical correct extraction from ADR-001 Seam 2+3. Includes the full business capability with all its persistence options and seed data logic. Clean REST boundary, no dangling dependencies."
+    },
+    {
+      "id": "E02",
+      "difficulty": "easy",
+      "label": "INCORRECT",
+      "title": "Redis Repository Alone",
+      "description": "Extract only RedisAlbumRepository and RedisConfig as a standalone 'Redis Storage Service', leaving AlbumController and other repositories in the monolith.",
+      "included": [
+        "repositories/redis/RedisAlbumRepository.java",
+        "config/data/RedisConfig.java"
+      ],
+      "excluded_from_monolith": [],
+      "ground_truth_reasoning": "A repository implementation is not a deployable service — it has no API boundary. Extracting a single persistence adapter leaves AlbumController with a broken dependency graph. This splits infrastructure from the business capability that owns it."
+    },
+    {
+      "id": "E03",
+      "difficulty": "easy",
+      "label": "INCORRECT",
+      "title": "Controller Without Repositories",
+      "description": "Extract only AlbumController as a standalone 'Album API Service', keeping all repository implementations in the monolith and communicating via remote calls.",
+      "included": [
+        "web/AlbumController.java"
+      ],
+      "excluded_from_monolith": [],
+      "ground_truth_reasoning": "AlbumController's entire purpose is to delegate to CrudRepository. Separating them without a shared contract or API between them creates a distributed call for every request and moves zero business logic out of the monolith."
+    },
+    {
+      "id": "E04",
+      "difficulty": "easy",
+      "label": "INCORRECT",
+      "title": "Error and Info Endpoints as Monitoring Service",
+      "description": "Extract ErrorController and InfoController as a standalone 'Monitoring Service' alongside the main application.",
+      "included": [
+        "web/ErrorController.java",
+        "web/InfoController.java"
+      ],
+      "excluded_from_monolith": [],
+      "ground_truth_reasoning": "ErrorController contains dangerous unauthenticated chaos endpoints (kill, fill-heap) that should be deleted, not extracted. InfoController reads Cloud Foundry environment state — extracting it separately adds a remote call for health information with no benefit."
+    },
+    {
+      "id": "E05",
+      "difficulty": "medium",
+      "label": "CORRECT",
+      "title": "Album Catalog with JPA Only (PostgreSQL default)",
+      "description": "Extract AlbumController, Album, RandomIdGenerator, JpaAlbumRepository, and AlbumRepositoryPopulator as a standalone service using PostgreSQL as the only persistence backend. Drop Mongo and Redis support in the extracted service.",
+      "included": [
+        "web/AlbumController.java",
+        "domain/Album.java",
+        "domain/RandomIdGenerator.java",
+        "repositories/jpa/JpaAlbumRepository.java",
+        "repositories/AlbumRepositoryPopulator.java"
+      ],
+      "excluded_from_monolith": [],
+      "ground_truth_reasoning": "This is the recommended approach in ADR-001: PostgreSQL as default, drop Cloud Foundry multi-store complexity in the extracted service. Cohesive, testable, clean boundary. Dropping Mongo/Redis support is a deliberate simplification consistent with the modernization goal."
+    },
+    {
+      "id": "E06",
+      "difficulty": "medium",
+      "label": "INCORRECT",
+      "title": "Album Catalog Without Seed Data",
+      "description": "Extract AlbumController, Album, RandomIdGenerator, and all repositories — but leave AlbumRepositoryPopulator in the monolith as a 'data migration concern'.",
+      "included": [
+        "web/AlbumController.java",
+        "domain/Album.java",
+        "domain/RandomIdGenerator.java",
+        "repositories/jpa/JpaAlbumRepository.java",
+        "repositories/mongodb/MongoAlbumRepository.java",
+        "repositories/redis/RedisAlbumRepository.java"
+      ],
+      "excluded_from_monolith": [],
+      "ground_truth_reasoning": "ADR-001 Seam 3 explicitly states AlbumRepositoryPopulator must move WITH the Catalog Service. The rule 'populate on first startup if empty' is a business rule owned by the catalog, not an infrastructure concern. Leaving it in the monolith creates a cross-service dependency for initialization."
+    },
+    {
+      "id": "E07",
+      "difficulty": "medium",
+      "label": "INCORRECT",
+      "title": "SpringApplicationContextInitializer as Config Service",
+      "description": "Extract SpringApplicationContextInitializer and RedisConfig as a standalone 'Configuration Service' that the main application calls at startup to determine its active profile.",
+      "included": [
+        "config/SpringApplicationContextInitializer.java",
+        "config/data/RedisConfig.java"
+      ],
+      "excluded_from_monolith": [],
+      "ground_truth_reasoning": "Context initialization is not a deployable service — it runs in-process during Spring application startup. Turning it into a remote service creates a distributed startup dependency and defeats the purpose of Spring's context initialization mechanism entirely."
+    },
+    {
+      "id": "E08",
+      "difficulty": "medium",
+      "label": "INCORRECT",
+      "title": "Domain Model Alone as Shared Library",
+      "description": "Extract Album, RandomIdGenerator, and ApplicationInfo as a standalone 'domain model library' jar shared between the monolith and future extracted services.",
+      "included": [
+        "domain/Album.java",
+        "domain/RandomIdGenerator.java",
+        "domain/ApplicationInfo.java"
+      ],
+      "excluded_from_monolith": [],
+      "ground_truth_reasoning": "Extracting the domain model as a shared library creates a tight coupling between services via a shared JAR. Changes to Album's fields would require redeployment of all consumers. The domain model should be owned by and bundled inside the Album Catalog Service, not shared."
+    },
+    {
+      "id": "E09",
+      "difficulty": "hard",
+      "label": "INCORRECT",
+      "title": "Album Catalog Exposing albumId Field in API",
+      "description": "Extract the full Album Catalog Service (AlbumController + all repos + Album entity) but keep the current Album JSON shape in the external API, including the internal 'albumId' field alongside the generated 'id' field.",
+      "included": [
+        "web/AlbumController.java",
+        "domain/Album.java",
+        "domain/RandomIdGenerator.java",
+        "repositories/jpa/JpaAlbumRepository.java",
+        "repositories/AlbumRepositoryPopulator.java"
+      ],
+      "excluded_from_monolith": [],
+      "ground_truth_reasoning": "The extraction boundary is correct, but exposing 'albumId' in the new service's API leaks an internal identifier from the monolith's data model. The anti-corruption layer principle (ADR-001 Seam 2) requires that the new service's API contract be clean. This is The Fence violation."
+    },
+    {
+      "id": "E10",
+      "difficulty": "hard",
+      "label": "CORRECT",
+      "title": "Delete ErrorController, Restrict Actuator",
+      "description": "Rather than extracting ErrorController, delete it entirely and restrict Spring Actuator to expose only 'health' and 'info' endpoints. This is the first change before any service extraction.",
+      "included": [],
+      "excluded_from_monolith": ["web/ErrorController.java"],
+      "ground_truth_reasoning": "ADR-001 Seam 1 explicitly calls this a deletion not an extraction. ErrorController contains unauthenticated chaos endpoints — deleting them reduces attack surface. This is the correct first action before any extraction, even though it's not an extraction itself."
+    },
+    {
+      "id": "E11",
+      "difficulty": "hard",
+      "label": "INCORRECT",
+      "title": "AlbumRepositoryPopulator as Standalone Seeding Service",
+      "description": "Extract AlbumRepositoryPopulator as a standalone 'Data Seeding Service' that runs once at startup and populates the album catalog via the Album Catalog Service's REST API.",
+      "included": [
+        "repositories/AlbumRepositoryPopulator.java"
+      ],
+      "excluded_from_monolith": [],
+      "ground_truth_reasoning": "While superficially appealing, turning seed data logic into a separate service adds network dependency to initialization, introduces a race condition (seeder must wait for catalog to be ready), and creates operational complexity for what is essentially a startup side-effect. ADR-001 says move it with the catalog, not separate it."
+    },
+    {
+      "id": "E12",
+      "difficulty": "hard",
+      "label": "INCORRECT",
+      "title": "Full Catalog Keeping Cloud Foundry Wiring",
+      "description": "Extract the full Album Catalog Service (AlbumController + all repos + domain) but keep SpringApplicationContextInitializer inside the extracted service to preserve Cloud Foundry VCAP_SERVICES-based profile detection.",
+      "included": [
+        "web/AlbumController.java",
+        "domain/Album.java",
+        "domain/RandomIdGenerator.java",
+        "repositories/jpa/JpaAlbumRepository.java",
+        "repositories/mongodb/MongoAlbumRepository.java",
+        "repositories/redis/RedisAlbumRepository.java",
+        "repositories/AlbumRepositoryPopulator.java",
+        "config/SpringApplicationContextInitializer.java"
+      ],
+      "excluded_from_monolith": [],
+      "ground_truth_reasoning": "The business capability extraction is correct, but keeping Cloud Foundry wiring defeats the modernization goal. The extracted service should use standard environment variables or Spring Cloud Config, not VCAP_SERVICES. Carrying the CF dependency forward is explicitly listed in ADR-001 as something NOT to do."
+    }
+  ]
+}
